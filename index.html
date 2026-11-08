@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bernstein QC Forecast Scorecard — One Year Later</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #ffffff;
+  --surface: #f8f9fa;
+  --surface2: #f1f3f5;
+  --surface-hover: #e9ecef;
+  --text: #1a1a2e;
+  --text-muted: #6b7280;
+  --accent: #4f46e5;
+  --accent-light: #eef2ff;
+  --accent-hover: #4338ca;
+  --border: #e5e7eb;
+  --border-light: #f0f0f0;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  --radius: 8px;
+  --radius-lg: 12px;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: var(--font); background: var(--surface); color: var(--text); line-height: 1.6; }
+
+.hero { text-align:center; padding:48px 20px 32px; background:var(--bg); border-bottom:1px solid var(--border); }
+.hero h1 { font-size:1.8rem; font-weight:700; color:var(--text); margin-bottom:6px; }
+.hero p { color:var(--text-muted); font-size:0.95rem; max-width:640px; margin:0 auto; }
+.stats { display:flex; justify-content:center; gap:32px; margin-top:20px; flex-wrap:wrap; }
+.stat-num { font-size:1.6rem; font-weight:700; color:var(--accent); }
+.stat-num.green { color:#16a34a; }
+.stat-num.red { color:#dc2626; }
+.stat-label { font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; }
+
+.controls { position:sticky; top:0; z-index:100; background:rgba(255,255,255,0.95); backdrop-filter:blur(10px); border-bottom:1px solid var(--border); padding:10px 20px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:center; }
+.controls input { background:var(--surface); border:1px solid var(--border); color:var(--text); padding:7px 14px; border-radius:var(--radius); font-size:0.85rem; width:260px; outline:none; }
+.controls input:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-light); }
+.controls button { background:var(--bg); border:1px solid var(--border); color:var(--text-muted); padding:7px 14px; border-radius:var(--radius); cursor:pointer; font-size:0.8rem; transition:all 0.15s; }
+.controls button:hover, .controls button.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+
+.container { max-width:960px; margin:0 auto; padding:20px 16px; }
+
+.card { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-lg); margin-bottom:10px; box-shadow:var(--shadow-sm); transition:all 0.2s; }
+.card:hover { box-shadow:var(--shadow-md); }
+.card-header { padding:18px 24px; cursor:pointer; position:relative; }
+.card-title { font-size:1.1rem; font-weight:600; color:var(--text); margin:0; padding-right:24px; }
+.card-subtitle { font-size:0.85rem; color:var(--text-muted); margin:2px 0 0; }
+.card-meta { display:flex; gap:8px; align-items:center; margin-bottom:4px; }
+.card-toggle { position:absolute; right:20px; top:50%; transform:translateY(-50%); font-size:1.1rem; color:var(--text-muted); transition:transform 0.3s; }
+.card.open .card-toggle { transform:translateY(-50%) rotate(180deg); }
+.card-body { max-height:0; overflow:hidden; transition:max-height 0.4s ease; }
+.card.open .card-body { max-height:50000px; }
+
+.badge { font-size:0.65rem; text-transform:uppercase; letter-spacing:0.8px; padding:2px 8px; border-radius:4px; font-weight:600; }
+.badge-primary { background:var(--accent-light); color:var(--accent); }
+.badge-secondary { background:#f0fdf4; color:#16a34a; }
+.badge-danger { background:#fef2f2; color:#dc2626; }
+.badge-warn { background:#fffbeb; color:#d97706; }
+.badge-muted { background:var(--surface2); color:var(--text-muted); }
+
+.bullets-container { padding:0 24px 20px; }
+.bullet { border-left:3px solid var(--border); padding:10px 14px; margin-bottom:3px; cursor:pointer; border-radius:0 var(--radius) var(--radius) 0; transition:all 0.15s; position:relative; }
+.bullet:hover { background:var(--surface); border-left-color:var(--accent); }
+.bullet.expanded { background:var(--surface); border-left-color:var(--accent); }
+.bullet-summary { display:flex; align-items:flex-start; gap:10px; }
+.bullet-num { background:var(--accent-light); color:var(--accent); min-width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.72rem; font-weight:600; flex-shrink:0; }
+.bullet-text { font-size:0.9rem; flex:1; }
+.bullet-arrow { color:var(--text-muted); font-size:0.75rem; transition:transform 0.3s; flex-shrink:0; margin-top:4px; }
+.bullet.expanded .bullet-arrow { transform:rotate(180deg); }
+.bullet-detail { max-height:0; overflow:hidden; transition:max-height 0.35s ease; }
+.bullet.expanded .bullet-detail { max-height:5000px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+.bullet-detail p { font-size:0.88rem; line-height:1.75; color:var(--text-muted); margin-bottom:6px; }
+
+.chart-container { padding:16px 24px; }
+.chart-title { font-size:0.9rem; color:var(--accent); margin-bottom:10px; font-weight:600; }
+.chart-note { font-size:0.75rem; color:var(--text-muted); margin-top:6px; font-style:italic; }
+canvas { max-width:100%; height:auto !important; }
+
+.section-label { text-align:center; padding:28px 0 12px; color:var(--text-muted); font-size:0.8rem; font-weight:600; text-transform:uppercase; letter-spacing:2px; }
+
+table.score { width:100%; border-collapse:collapse; font-size:0.85rem; margin:0 0 6px; }
+table.score th { text-align:left; padding:8px 10px; background:var(--surface2); color:var(--text-muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.8px; }
+table.score td { padding:9px 10px; border-bottom:1px solid var(--border-light); vertical-align:top; }
+table.score tr:last-child td { border-bottom:none; }
+.verdict-hit { color:#16a34a; font-weight:600; }
+.verdict-miss { color:#dc2626; font-weight:600; }
+.verdict-near { color:#d97706; font-weight:600; }
+.table-wrap { padding:0 24px 16px; overflow-x:auto; }
+
+.footer-note { text-align:center; font-size:0.75rem; color:var(--text-muted); padding:24px 16px 40px; max-width:720px; margin:0 auto; }
+
+@media (max-width:640px) {
+  .hero h1 { font-size:1.4rem; }
+  .controls input { width:100%; }
+  .card-header { padding:14px 16px; }
+  .bullets-container { padding:0 12px 16px; }
+  .table-wrap { padding:0 12px 16px; }
+}
+@media print { .card-body { max-height:none !important; } .controls { display:none; } }
+
+/* Commenting UI */
+.comment-btn { display:none; position:absolute; right:8px; top:50%; transform:translateY(-50%); background:var(--accent); color:#fff; border:none; border-radius:var(--radius); padding:4px 10px; font-size:0.7rem; cursor:pointer; z-index:10; }
+.bullet:hover .comment-btn { display:block; }
+.comment-form { margin-top:8px; display:flex; gap:6px; }
+.comment-form textarea { flex:1; border:1px solid var(--border); border-radius:var(--radius); padding:6px 10px; font-size:0.82rem; font-family:var(--font); resize:vertical; min-height:36px; }
+.comment-form button { background:var(--accent); color:#fff; border:none; border-radius:var(--radius); padding:6px 14px; font-size:0.78rem; cursor:pointer; }
+.comment-form button:hover { background:var(--accent-hover); }
+.comment-toast { position:fixed; bottom:20px; right:20px; background:#10b981; color:#fff; padding:10px 20px; border-radius:var(--radius); font-size:0.85rem; z-index:9999; animation:fadeOut 2s 1s forwards; }
+@keyframes fadeOut { to { opacity:0; } }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>Bernstein's India QC Forecasts, One Year Later</h1>
+  <p>Scoring the 3 Nov 2025 initiation report ("India E-Commerce: Race for the Last Mile") against FY26 actuals and Q2 FY27 results for Blinkit, Swiggy Instamart and Zepto. Compiled 8 Nov 2026 from public filings and press coverage.</p>
+  <div class="stats">
+    <div><div class="stat-num green">Blinkit</div><div class="stat-label">Closest to forecast</div></div>
+    <div><div class="stat-num red">&minus;53%</div><div class="stat-label">Swiggy (the top pick)</div></div>
+    <div><div class="stat-num">+14%</div><div class="stat-label">Eternal vs &#8377;390 TP</div></div>
+    <div><div class="stat-num">33%</div><div class="stat-label">Instamart/Blinkit NOV (model: &rarr;65%)</div></div>
+  </div>
+</div>
+
+<div class="controls">
+  <input type="text" id="search" placeholder="Search..." oninput="filterItems()">
+  <button onclick="filterCategory(0)" class="active" data-filter="0" id="btn-all">All</button>
+  <button onclick="filterCategory(1)" data-filter="1">Scorecard</button>
+  <button onclick="filterCategory(2)" data-filter="2">Players</button>
+  <button onclick="filterCategory(3)" data-filter="3">Stocks</button>
+  <button onclick="expandAll()">Expand All</button>
+  <button onclick="collapseAll()">Collapse All</button>
+</div>
+
+<div class="container">
+
+<div class="section-label">The Verdict</div>
+
+<div class="card open" data-category="1">
+  <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+    <div class="card-meta"><span class="badge badge-primary">Summary</span></div>
+    <h3 class="card-title">Blinkit beat the model. Instamart broke it. Zepto grew without the profits.</h3>
+    <p class="card-subtitle">The industry analysis was excellent; the stock pick was not.</p>
+    <span class="card-toggle">&#9662;</span>
+  </div>
+  <div class="card-body">
+    <div class="bullets-container">
+      <div class="bullet" onclick="event.stopPropagation(); this.classList.toggle('expanded')">
+        <div class="bullet-summary"><span class="bullet-num">1</span><span class="bullet-text">Bernstein's FY26 scale forecasts landed within single digits for both listed players &mdash; genuinely good modelling.</span><span class="bullet-arrow">&#9662;</span></div>
+        <div class="bullet-detail"><p>Blinkit FY26 NOV came in at &#8377;48,568 crore against a forecast of &#8377;52,000 crore (a 7% miss), with 917 million orders against 978 million forecast. Instamart's FY26 GOV of roughly &#8377;28,500 crore was almost exactly the &#8377;28,935 crore Bernstein modelled. For a report written mid-year with a proprietary dark-store database as its main edge, that is tight work. The problem was never the FY26 numbers &mdash; it was the FY27 glide path that the investment thesis depended on.</p></div>
+      </div>
+      <div class="bullet" onclick="event.stopPropagation(); this.classList.toggle('expanded')">
+        <div class="bullet-summary"><span class="bullet-num">2</span><span class="bullet-text">The one contrarian bet &mdash; believe in Instamart's profitability glide path, prefer Swiggy &mdash; is the exact thing that failed.</span><span class="bullet-arrow">&#9662;</span></div>
+        <div class="bullet-detail"><p>Bernstein explicitly argued against consensus: the street modelled Instamart at ~70% of Blinkit's FY30 GOV but only ~15% of its EBITDA, and Bernstein said that was too bearish, modelling 65% of GOV and 30% of EBITDA instead. A year on, Instamart's NOV is 33% of Blinkit's and falling (it was ~45% a year ago), its Q2 FY27 adjusted EBITDA margin is &minus;9.7% against a modelled FY27 path of &minus;2.4%, and Jefferies notes the market now ascribes negative value to Instamart. Consensus won the argument.</p></div>
+      </div>
+      <div class="bullet" onclick="event.stopPropagation(); this.classList.toggle('expanded')">
+        <div class="bullet-summary"><span class="bullet-num">3</span><span class="bullet-text">The structural market calls &mdash; winner-takes-most, top-3 stability, food delivery as the cash machine &mdash; largely came true.</span><span class="bullet-arrow">&#9662;</span></div>
+        <div class="bullet-detail"><p>"QC has scale effects, not network effects; leader profitability will be better than the rest" is exactly what happened &mdash; arguably more extreme than Bernstein expected, with Blinkit now matching Zepto and Instamart combined on order volume and being the only profitable player. The food delivery call (structural slowdown to 16&ndash;18% growth, cash machine economics) was dead on: Swiggy's FD GOV grew 17.7% in Q2 FY27 at a record 3.4% margin. The framework was right; the relative-winner weighting inside it was wrong.</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section-label">FY26 Scorecard &mdash; Forecast vs Actual</div>
+
+<div class="card open" data-category="1">
+  <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+    <div class="card-meta"><span class="badge badge-primary">FY26 (ended Mar 2026)</span></div>
+    <h3 class="card-title">The year-one numbers</h3>
+    <span class="card-toggle">&#9662;</span>
+  </div>
+  <div class="card-body">
+    <div class="table-wrap">
+      <table class="score">
+        <tr><th>Metric</th><th>Bernstein FY26E</th><th>Actual</th><th>Verdict</th></tr>
+        <tr><td>Blinkit NOV</td><td>&#8377;52,000 cr</td><td>&#8377;48,568 cr</td><td class="verdict-near">&minus;7%, near miss</td></tr>
+        <tr><td>Blinkit orders</td><td>978 mn</td><td>917 mn</td><td class="verdict-near">&minus;6%</td></tr>
+        <tr><td>Blinkit adj. EBITDA breakeven</td><td>"In FY27"</td><td>Q4 FY26: +&#8377;37 cr</td><td class="verdict-hit">Beat &mdash; a quarter early</td></tr>
+        <tr><td>Instamart GOV</td><td>&#8377;28,935 cr</td><td>~&#8377;28,500 cr</td><td class="verdict-hit">Almost exact</td></tr>
+        <tr><td>Instamart revenue</td><td>&#8377;4,400 cr</td><td>&#8377;3,859 cr</td><td class="verdict-near">&minus;12%</td></tr>
+        <tr><td>Zepto (no model; "stays top-3")</td><td>&mdash;</td><td>Revenue 2x to &#8377;22,623 cr; adj. EBITDA &minus;&#8377;5,041 cr; IPO filed</td><td class="verdict-near">Scale yes, profits no</td></tr>
+      </table>
+    </div>
+    <div class="chart-container">
+      <div class="chart-title">FY26 forecast vs actual (&#8377; crore)</div>
+      <canvas id="chartFY26" height="220"></canvas>
+      <div class="chart-note">Blinkit NOV and Instamart GOV, Bernstein estimate vs reported. Sources: Eternal and Swiggy FY26 results.</div>
+    </div>
+  </div>
+</div>
+
+<div class="section-label">The Three Players</div>
+
+<div class="card" data-category="2">
+  <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+    <div class="card-meta"><span class="badge badge-secondary">Beat the model</span></div>
+    <h3 class="card-title">Blinkit &mdash; ahead of the only above-consensus numbers in the report</h3>
+    <p class="card-subtitle">Q2 FY27: NOV +79% YoY, adj. EBITDA +0.9% of NOV, 2,751 stores</p>
+    <span class="card-toggle">&#9662;</span>
+  </div>
+  <div class="card-body">
+    <div class="bullets-container">
+      <div class="bullet" onclick="event.stopPropagation(); this.classList.toggle('expanded')">
+        <div class="bullet-summary"><span class="bullet-num">1</span><span class="bullet-text">Growth: Q2 FY27 NOV of &#8377;20,940 cr (+79% YoY) paces Bernstein's aggressive &#8377;94,300 cr FY27 estimate &mdash; which was 9% above consensus.</span><span class="bullet-arrow">&#9662;</span></div>
+        <div class="bullet-detail"><p>Bernstein's Blinkit GOV estimates sat 5&ndash;10% above street consensus for FY26&ndash;FY28, the boldest numbers in the model. Blinkit is delivering them. Revenue hit &#8377;19,152 cr in Q2 FY27 alone, boosted by the 3P-to-1P inventory transition that Bernstein correctly predicted would complete fast and lift take-rates from ~23% to ~93% of NOV.</p></div>
+      </div>
+      <div class="bullet" onclick="event.stopPropagation(); this.classList.toggle('expanded')">
+        <div class="bullet-summary"><span class="bullet-num">2</span><span class="bullet-text">Stores: 2,751 at Sep 2026 with the Mar 2027 target raised to 3,500 &mdash; that is Bernstein's FY28 store count, a year early.</span><span class="bullet-arrow">&#9662;</span></div>
+        <div class="bullet-detail"><p>The model assumed 3,001 stores by end-FY27 and 3,501 by end-FY28, with build intensity "moderating materially". Instead Blinkit added 308 stores in a single quarter and pulled the 3,500 target forward to March 2027. The expansion call was directionally right but too conservative &mdash; the rare miss in Blinkit's favour.</p></div>
+      </div>
+      <div class="bullet" onclick="event.stopPropagation(); this.classList.toggle('expanded')">
+        <div class="bullet-summary"><span class="bullet-num">3</span><span class="bullet-text">Profitability: +0.9% of NOV in Q2 FY27 vs a modelled +0.7% for the full year; mature cities already run above 5%.</span><span class="bullet-arrow">&#9662;</span></div>
+        <div class="bullet-detail"><p>Bernstein modelled breakeven "in FY27"; Blinkit got there in Q4 FY26 (+&#8377;37 cr) and has now posted five straight quarters of profitability gains, earning &#8377;184 cr in Q2 FY27. Cities contributing ~70% of NOV are already adjusted-EBITDA positive. The margin build Bernstein sketched &mdash; fixed-cost absorption from sweating stores toward 2,200 orders/day, plus ad income &mdash; is playing out on script, just faster.</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card" data-category="2">
+  <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+    <div class="card-meta"><span class="badge badge-danger">Broke the thesis</span></div>
+    <h3 class="card-title">Instamart &mdash; the glide path that never glided</h3>
+    <p class="card-subtitle">Q2 FY27: NOV +31% YoY vs modelled +83%; adj. EBITDA &minus;9.7% vs modelled &minus;2.4%</p>
+    <span class="card-toggle">&#9662;</span>
+  </div>
+  <div class="card-body">
+    <div class="bullets-container">
+      <div class="bullet" onclick="event.stopPropagation(); this.classList.toggle('expanded')">
+        <div class="bullet-summary"><span class="bullet-num">1</span><span class="bullet-text">Growth miss: Bernstein modelled FY27 NOV of &#8377;39,200 cr on an 83% growth assumption; the actual run-rate is tracking roughly 30% below.</span><span class="bullet-arrow">&#9662;</span></div>
+        <div class="bullet-detail"><p>The model's engine was a throughput ramp &mdash; orders per store per day jumping from ~1,094 to ~1,583 in FY27 as under-utilised 4,200 sq ft stores filled up. Q2 FY27 NOV of &#8377;6,954 cr (+31.4% YoY) shows the ramp is not happening at anywhere near that pace. Store count (1,240 at Sep 2026 vs 1,382 modelled for end-FY27) is roughly on path; it is the demand per store that failed the model.</p></div>
+      </div>
+      <div class="bullet" onclick="event.stopPropagation(); this.classList.toggle('expanded')">
+        <div class="bullet-summary"><span class="bullet-num">2</span><span class="bullet-text">Margin miss: Q2 FY27 adjusted EBITDA of &minus;&#8377;895 cr (&minus;9.7%) against a modelled FY27 path of &minus;2.4%; contribution margin &minus;1% vs modelled +3%.</span><span class="bullet-arrow">&#9662;</span></div>
+        <div class="bullet-detail"><p>Bernstein's signature anti-consensus call was that Instamart's profitability was underrated. Instead losses widened year on year (from &minus;&#8377;778 cr) while Blinkit earned +&#8377;184 cr in the same quarter. The &#8377;10,000 cr QIP that Bernstein framed as a re-rating catalyst and competitive deterrent has instead funded continued burn.</p></div>
+      </div>
+      <div class="bullet" onclick="event.stopPropagation(); this.classList.toggle('expanded')">
+        <div class="bullet-summary"><span class="bullet-num">3</span><span class="bullet-text">The "65% of Blinkit by FY30" call is moving in reverse: the NOV ratio has fallen from ~45% to 33% in four quarters.</span><span class="bullet-arrow">&#9662;</span></div>
+        <div class="bullet-detail"><p>For the convergence call to work, Instamart had to grow faster than Blinkit from FY27. The opposite happened: Blinkit grew 79% while Instamart grew 31% in the same quarter. Bernstein's own October 2026 availability study supplies a mechanism &mdash; Instamart's 83.8% in-stock rate against Blinkit's 94.4%, with the steepest intraday decay of any platform, pointing to the demand-forecasting and replenishment gap the initiation report underweighted. Flipkart Minutes has meanwhile overtaken Instamart on dark-store count.</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card" data-category="2">
+  <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+    <div class="card-meta"><span class="badge badge-warn">Half right</span></div>
+    <h3 class="card-title">Zepto &mdash; the scale happened, the profits did not</h3>
+    <p class="card-subtitle">FY26: revenue 2x to &#8377;22,623 cr; adj. EBITDA &minus;&#8377;5,041 cr; IPO filed</p>
+    <span class="card-toggle">&#9662;</span>
+  </div>
+  <div class="card-body">
+    <div class="bullets-container">
+      <div class="bullet" onclick="event.stopPropagation(); this.classList.toggle('expanded')">
+        <div class="bullet-summary"><span class="bullet-num">1</span><span class="bullet-text">Bernstein kept Zepto unmodelled (unlisted) but bet it stays top-3 &mdash; correct: revenue doubled to &#8377;22,623 cr and it holds the #2 spot on most metrics.</span><span class="bullet-arrow">&#9662;</span></div>
+        <div class="bullet-detail"><p>Zepto's FY26 operating revenue of &#8377;22,623 cr (up from &#8377;11,110 cr) with 1,139 dark stores keeps it comfortably in the top three, ahead of Instamart on scale. Ad revenue grew 2.5x to &#8377;1,636 cr, validating Bernstein's thesis that advertising is the core profit lever for QC platforms.</p></div>
+      </div>
+      <div class="bullet" onclick="event.stopPropagation(); this.classList.toggle('expanded')">
+        <div class="bullet-summary"><span class="bullet-num">2</span><span class="bullet-text">But "top-3 and profitable" is still distant: adjusted EBITDA loss widened to &#8377;5,041 cr in FY26 (net loss &#8377;5,905 cr).</span><span class="bullet-arrow">&#9662;</span></div>
+        <div class="bullet-detail"><p>The medium-term claim that all three leaders end up profitable remains unproven &mdash; Blinkit is the only one there. The per-order trend does support the direction: adjusted EBITDA loss per order improved from &#8377;136 to &#8377;79. Zepto has filed its DRHP, so FY27 will put public numbers against the rest of this scorecard.</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section-label">The Stock Calls</div>
+
+<div class="card open" data-category="3">
+  <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+    <div class="card-meta"><span class="badge badge-primary">Initiated 31 Oct 2025 &mdash; both Outperform, Swiggy top pick</span></div>
+    <h3 class="card-title">One thesis worked. The top pick halved.</h3>
+    <span class="card-toggle">&#9662;</span>
+  </div>
+  <div class="card-body">
+    <div class="table-wrap">
+      <table class="score">
+        <tr><th>Stock</th><th>At initiation</th><th>Target (Mar'27)</th><th>Now (6 Nov 2026)</th><th>Result</th></tr>
+        <tr><td>Eternal</td><td>&#8377;318</td><td>&#8377;390</td><td>&#8377;363</td><td class="verdict-hit">+14%, closing on TP</td></tr>
+        <tr><td>Swiggy (top pick)</td><td>&#8377;410</td><td>&#8377;570</td><td>&#8377;191</td><td class="verdict-miss">&minus;53%, record low &#8377;176 post-Q2</td></tr>
+      </table>
+    </div>
+    <div class="chart-container">
+      <div class="chart-title">Price at initiation vs target vs today (&#8377;)</div>
+      <canvas id="chartStocks" height="220"></canvas>
+      <div class="chart-note">Swiggy fell 17% in one session after Q2 FY27; Jefferies notes the market now ascribes negative value to Instamart.</div>
+    </div>
+    <div class="bullets-container">
+      <div class="bullet" onclick="event.stopPropagation(); this.classList.toggle('expanded')">
+        <div class="bullet-summary"><span class="bullet-num">1</span><span class="bullet-text">The predicted "QC re-rating for Swiggy over the next six quarters" became a de-rating.</span><span class="bullet-arrow">&#9662;</span></div>
+        <div class="bullet-detail"><p>Bernstein's re-rating catalysts were the QIP and visible progress on the profitability glide path. The QIP happened; the glide path did not. After Q2 FY27 showed Instamart losses widening to &#8377;895 cr, roughly &#8377;9,000 cr of market value was wiped out in a single session and the stock hit a record low. At current prices the market values Swiggy below the standalone worth of its food delivery business plus cash.</p></div>
+      </div>
+      <div class="bullet" onclick="event.stopPropagation(); this.classList.toggle('expanded')">
+        <div class="bullet-summary"><span class="bullet-num">2</span><span class="bullet-text">The Eternal call worked for exactly the reason the Swiggy call failed: the model trusted Blinkit's execution and doubted the street's Blinkit growth numbers.</span><span class="bullet-arrow">&#9662;</span></div>
+        <div class="bullet-detail"><p>Eternal is up 14% since initiation at &#8377;363 against a &#8377;390 March-2027 target, with Q2 FY27 profit up 92% on Blinkit's strength. The irony: Bernstein's below-consensus caution on Zomato food delivery growth also proved right, yet the stock still outperformed because Blinkit over-delivered &mdash; the exact winner-takes-most dynamic the report described, concentrated in the one company it ranked second in preference.</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section-label">Structural Calls</div>
+
+<div class="card" data-category="1">
+  <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+    <div class="card-meta"><span class="badge badge-secondary">Mostly right</span></div>
+    <h3 class="card-title">The framework held up better than the pick</h3>
+    <span class="card-toggle">&#9662;</span>
+  </div>
+  <div class="card-body">
+    <div class="table-wrap">
+      <table class="score">
+        <tr><th>Call (Nov 2025)</th><th>What happened</th><th>Verdict</th></tr>
+        <tr><td>Winner-takes-most, not winner-takes-all; Blinkit&ndash;Instamart&ndash;Zepto stay top-3</td><td>True &mdash; though Flipkart Minutes now presses Instamart on store count</td><td class="verdict-hit">Hit</td></tr>
+        <tr><td>Leader profitability "better than the rest"</td><td>Understated: Blinkit is the only profitable player and matches #2+#3 combined on orders</td><td class="verdict-hit">Hit (conservative)</td></tr>
+        <tr><td>Food delivery = cash machine, 16&ndash;18% growth</td><td>Swiggy FD GOV +17.7% in Q2 FY27 at record 3.4% margin; Zomato FD slowdown structural as argued</td><td class="verdict-hit">Dead on</td></tr>
+        <tr><td>Top-3 all profitable (medium term)</td><td>Only Blinkit; Zepto &minus;&#8377;5,041 cr FY26, Instamart ~&minus;&#8377;3,400 cr FY26</td><td class="verdict-near">Unproven</td></tr>
+        <tr><td>QC = $35 bn SAM by FY30</td><td>Unresolved; directionally consistent with current growth</td><td class="verdict-near">Too early</td></tr>
+        <tr><td>Instamart reaches 65% of Blinkit GOV by FY30</td><td>Ratio fell from ~45% to 33% in four quarters &mdash; moving in reverse</td><td class="verdict-miss">Failing</td></tr>
+      </table>
+    </div>
+    <div class="chart-container">
+      <div class="chart-title">Instamart NOV as % of Blinkit NOV &mdash; the convergence call in reverse</div>
+      <canvas id="chartRatio" height="200"></canvas>
+      <div class="chart-note">Q2 FY26 and Q2 FY27 from reported quarterly NOV; FY30 point is Bernstein's model target.</div>
+    </div>
+  </div>
+</div>
+
+<div class="footer-note">
+  Personal analysis scoring a published sell-side initiation (Bernstein, "India E-Commerce: Race for the Last Mile", 3 Nov 2025, Gor/Shah/Luthra) against subsequently reported public results. Forecast figures as summarised in the report; actuals from Eternal and Swiggy quarterly disclosures, Zepto DRHP coverage, and press reports (Oct&ndash;Nov 2026). Not investment advice.
+</div>
+
+</div>
+
+<script>
+let activeFilter = 0;
+
+function filterItems() {
+  const q = document.getElementById('search').value.toLowerCase();
+  document.querySelectorAll('.card').forEach(card => {
+    const text = card.textContent.toLowerCase();
+    const cat = parseInt(card.dataset.category || '0');
+    const matchSearch = !q || text.includes(q);
+    const matchCat = activeFilter === 0 || cat === activeFilter;
+    card.style.display = (matchSearch && matchCat) ? '' : 'none';
+  });
+}
+
+function filterCategory(c) {
+  activeFilter = c;
+  document.querySelectorAll('.controls button[data-filter]').forEach(b => b.classList.remove('active'));
+  document.querySelector(`[data-filter="${c}"]`).classList.add('active');
+  filterItems();
+}
+
+function expandAll() {
+  document.querySelectorAll('.card').forEach(c => { if (c.style.display !== 'none') c.classList.add('open'); });
+}
+
+function collapseAll() {
+  document.querySelectorAll('.card').forEach(c => c.classList.remove('open'));
+  document.querySelectorAll('.bullet').forEach(b => b.classList.remove('expanded'));
+}
+
+const chartInits = {
+  chartFY26: function(ctx) {
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['Blinkit NOV', 'Instamart GOV'],
+        datasets: [
+          { label: 'Bernstein FY26E', data: [52000, 28935], backgroundColor: '#4f46e5' },
+          { label: 'Actual FY26', data: [48568, 28500], backgroundColor: '#10b981' }
+        ]
+      },
+      options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { ticks: { callback: v => '₹' + (v/1000) + 'k cr' } } } }
+    });
+  },
+  chartStocks: function(ctx) {
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['Eternal', 'Swiggy'],
+        datasets: [
+          { label: 'At initiation (31 Oct 2025)', data: [318, 410], backgroundColor: '#6b7280' },
+          { label: 'Target (Mar 2027)', data: [390, 570], backgroundColor: '#4f46e5' },
+          { label: 'Now (6 Nov 2026)', data: [363, 191], backgroundColor: '#f59e0b' }
+        ]
+      },
+      options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { ticks: { callback: v => '₹' + v } } } }
+    });
+  },
+  chartRatio: function(ctx) {
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: ['Q2 FY26 (actual)', 'Q2 FY27 (actual)', 'FY30 (Bernstein target)'],
+        datasets: [{
+          label: 'Instamart NOV as % of Blinkit NOV',
+          data: [45, 33, 65],
+          borderColor: '#ef4444',
+          backgroundColor: 'rgba(239,68,68,0.1)',
+          segment: { borderDash: c => c.p1DataIndex === 2 ? [6,6] : undefined },
+          tension: 0.2, fill: true, pointRadius: 5
+        }]
+      },
+      options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { min: 0, max: 80, ticks: { callback: v => v + '%' } } } }
+    });
+  }
+};
+
+function initChart(id) {
+  const canvas = document.getElementById(id);
+  if (canvas && chartInits[id]) chartInits[id](canvas.getContext('2d'));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // init charts in cards that start open
+  document.querySelectorAll('.card.open canvas').forEach(c => { if (!c.dataset.init) { c.dataset.init = '1'; initChart(c.id); } });
+  const obs = new MutationObserver(muts => {
+    muts.forEach(m => {
+      if (m.target.classList.contains('open')) {
+        m.target.querySelectorAll('canvas').forEach(canvas => {
+          if (canvas && !canvas.dataset.init) {
+            canvas.dataset.init = '1';
+            initChart(canvas.id);
+          }
+        });
+      }
+    });
+  });
+  document.querySelectorAll('.card').forEach(c => obs.observe(c, { attributes: true, attributeFilter: ['class'] }));
+});
+
+// Commenting — posts to feedback server (no-op on static GitHub Pages hosting)
+(function(){
+  const FEEDBACK_URL = '/feedback';
+  document.querySelectorAll('.bullet').forEach(bullet => {
+    const btn = document.createElement('button');
+    btn.className = 'comment-btn';
+    btn.textContent = 'Comment';
+    btn.onclick = function(e) {
+      e.stopPropagation();
+      if (bullet.querySelector('.comment-form')) return;
+      const form = document.createElement('div');
+      form.className = 'comment-form';
+      form.innerHTML = '<textarea placeholder="Your feedback..."></textarea><button type="button">Send</button>';
+      form.querySelector('button').onclick = function(ev) {
+        ev.stopPropagation();
+        const text = form.querySelector('textarea').value.trim();
+        if (!text) return;
+        const card = bullet.closest('.card');
+        const payload = {
+          comment: text,
+          section: card ? card.querySelector('.card-title')?.textContent || '' : '',
+          target: bullet.querySelector('.bullet-text')?.textContent?.slice(0, 200) || '',
+          bullet_num: bullet.querySelector('.bullet-num')?.textContent || ''
+        };
+        fetch(FEEDBACK_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) })
+          .then(r => { if(r.ok){ form.remove(); showToast('Feedback sent!'); } else { showToast('Error sending feedback'); } })
+          .catch(() => showToast('Comments not available on this host'));
+      };
+      bullet.appendChild(form);
+      form.querySelector('textarea').focus();
+    };
+    bullet.querySelector('.bullet-summary').appendChild(btn);
+  });
+  function showToast(msg) {
+    const t = document.createElement('div');
+    t.className = 'comment-toast';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 3200);
+  }
+})();
+</script>
+</body>
+</html>
